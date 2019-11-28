@@ -1,8 +1,8 @@
 '''
 Here i'll be writting utility functions if needed
 
-author: Régis Faria
-email: regisprogramming@gmail.com
+@AUTHOR: Régis Faria
+@EMAIL: regisprogramming@gmail.com
 '''
 import os
 import time

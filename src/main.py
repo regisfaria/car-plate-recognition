@@ -1,8 +1,8 @@
 '''
 MLP for recognize car plates 
 
-author: Régis Faria
-email: regisprogramming@gmail.com
+@AUTHOR: Régis Faria
+@EMAIL: regisprogramming@gmail.com
 '''
 import sys
 import utils
