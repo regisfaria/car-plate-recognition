@@ -8,13 +8,22 @@ import sys
 import utils
 import os
 import time
+
 import logging
 from logging import handlers
 
+from numpy import loadtxt
+from keras.models import Sequential
+from keras.layers import Dense
+
+from PIL import Image
+
 # Setting directories 
-project_directory = utils.get_project_root()
-samples_path = project_directory + '/output/' 
-output_path = project_directory + '/samples/'
+project_directory = str(utils.get_project_root())
+output_path = project_directory + '/output/' 
+imgs_path = project_directory + '/imgs/'
+train_dataset_path = project_directory + '/dataset/train/'
+test_path = project_directory + '/test/'
 script_name = os.path.basename(__file__)
 
 # Logs setup
@@ -43,4 +52,6 @@ logger.addHandler(file_handler)
 stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(formatter)
 logger.addHandler(stdout_handler)
+
+#######################################################
 
