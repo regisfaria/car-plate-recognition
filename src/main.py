@@ -1,29 +1,37 @@
 '''
-MLP for recognize car plates 
+MLP for car plate recognition 
 
 @AUTHOR: Régis Faria
 @EMAIL: regisprogramming@gmail.com
 '''
+
+#######  DEVELOPMENT STEPS  #######
+# [ ] from a car image, extract it's plate
+# [ ] implement a way to check if the extract plate was a success
+# [ ] segmentation of the car plate
+# [ ] save the segmented plate as a new img for each char
+# [ ] send the segmented imgs to the network
+# [ ] output info
+
+#######  TO-DO LIST  #######
+# [ ] implement the network
+# [ ] find a training digit and char samples
+
 import sys
 import utils
 import os
 import time
+from tqdm import tqdm
 
 import logging
 from logging import handlers
-
-from numpy import loadtxt
-from keras.models import Sequential
-from keras.layers import Dense
 
 from PIL import Image
 
 # Setting directories 
 project_directory = str(utils.get_project_root())
-output_path = project_directory + '/output/' 
-imgs_path = project_directory + '/imgs/'
-train_dataset_path = project_directory + '/dataset/train/'
-test_path = project_directory + '/test/'
+output_path = project_directory + '/output/'
+datasets_path = project_directory + '/datasets/'
 script_name = os.path.basename(__file__)
 
 # Logs setup
@@ -53,5 +61,59 @@ stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(formatter)
 logger.addHandler(stdout_handler)
 
+def select_dataset(path):
+    '''
+    This will return a list containing both test and train dataset location
+    where list[0] == train and list[1] == test
+    '''
+    
+    print('-----------------------------------------------------------------')
+    logger.debug('Please, select one dataset:')
+    logger.debug('Dataset 1: Turkish car plates')
+    logger.debug('Dataset 2: Random car plates')
+    logger.debug('Insert dataset value:')
+    selected = int(input())
+    
+    path_list = []
+    if selected == 1:
+        path_list.append(path + '/datasets/1/train/')
+        path_list.append(path + '/datasets/1/test/')
+    elif selected == 2:
+        path_list.append(project_directory + '/datasets/2/train/')
+        path_list.append(project_directory + '/datasets/2/test/')
+    else:
+        logger.debug('Invalid option, make sure to pick one of the listed numbers.')
+    print('-----------------------------------------------------------------')
+
+    return path_list
 #######################################################
 
+if __name__ == '__main__':
+    #[ ] here i'll create a menu
+    ############################
+    dataset_path = select_dataset(project_directory)
+
+    '''
+    # test for multiple imgs
+    try:    
+        # here i will make a quick test for img extract
+        for i in tqdm(range(1, 21)):
+            if i < 10:
+                image = dataset_path[0] + '0' + str(i) + '.jpg'
+            else:
+                image = dataset_path[0] + str(i) + '.jpg'
+            utils.extract_car_plate(image, output_path+'plate_out/')
+
+            utils.plate_segmentation(image, output_path+'plate_out/')
+    except Exception as e:
+        logger.debug(e)
+    '''
+    
+    
+    # test for 1 img only 
+    try:
+        image = dataset_path[0] + '01.jpg'
+        utils.extract_car_plate(image, output_path)
+        #utils.plate_segmentation(image, output_path)
+    except Exception as e:
+        logger.debug(e)
