@@ -6,7 +6,7 @@ MLP for car plate recognition
 '''
 
 #######  DEVELOPMENT STEPS  #######
-# [ ] from a car image, extract it's plate
+# [X] from a car image, extract it's plate
 # [ ] implement a way to check if the extract plate was a success
 # [ ] segmentation of the car plate
 # [ ] save the segmented plate as a new img for each char
@@ -15,7 +15,7 @@ MLP for car plate recognition
 
 #######  TO-DO LIST  #######
 # [ ] implement the network
-# [ ] find a training digit and char samples
+# [ ] find a training digit and char dataset
 
 import sys
 import utils
