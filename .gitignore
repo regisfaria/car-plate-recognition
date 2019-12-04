@@ -1,1 +1,4 @@
-my_notes.txts
+my_notes.txt
+.*
+__*
+logs/
