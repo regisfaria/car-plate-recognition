@@ -8,17 +8,17 @@ MLP for car plate recognition
 #######  DEVELOPMENT STEPS  #######
 # [X] from a car image, extract it's plate
 # [ ] implement a way to check if the extract plate was a success
-# [ ] segmentation of the car plate
-# [ ] save the segmented plate as a new img for each char
+# [X] segmentation of the car plate
+# [X] save the segmented plate as a new img for each char
+# [ ] implement the network
 # [ ] send the segmented imgs to the network
 # [ ] output info
+# [ ] finish github repo
 
-##########  TO-DO LIST  ###########
-# [ ] implement the network
+##########  OPTIONAL LIST  ###########
 # [ ] find a training digit and char dataset
 # [ ] find a way to get how many files are in a folder
 # [ ] threading for plate recognition
-
 # [ ] check this out later - dataset
 # / mnist / emnist /
 
@@ -38,6 +38,10 @@ project_directory = str(utils.get_project_root())
 output_path = project_directory + '/output/'
 datasets_path = project_directory + '/datasets/'
 script_name = os.path.basename(__file__)
+
+# Output folder setup
+if not os.path.exists(output_path):
+    os.makedirs(output_path)
 
 # Logs setup
 logs_directory = os.path.join(project_directory, 'logs')
