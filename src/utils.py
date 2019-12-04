@@ -66,8 +66,7 @@ def extract_car_plate(img_path, *args):
     else:
         folder_to_save = output_path
     img = cv2.imread(img_path)
-    img_name = img_path.split('/')
-    img_name = img_name[-1].split('.')
+    img_name = img_path.split('/')[-1].split('.')
 
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     hue, saturation, value = cv2.split(hsv)
@@ -282,12 +281,47 @@ def extract_car_plate(img_path, *args):
             cv2.line(img, tuple(p2fRectPoints[2]), tuple(p2fRectPoints[3]), rectColour, 2)
             cv2.line(img, tuple(p2fRectPoints[3]), tuple(p2fRectPoints[0]), rectColour, 2)
 
-            #cv2.imshow("detectedOriginal", img)
-            #cv2.imwrite(folder_to_save + img_name[0] + '_detected.jpg', img)
-
-            # cv2.imshow("plate", plates_list[i].Plate)
+            
             cv2.imwrite(folder_to_save + img_name[0] + '_plate.jpg', plates_list[i].Plate)
 
+def pre_segmentation_improvements(img_path, *args):
+    # define folder to save the imgs
+    if len(args) > 0:
+        folder_to_save = args[0]
+    else:
+        folder_to_save = output_path
+    #0 flag = cv2.IMREAD_GRAYSCALE:
+    img = cv2.imread(img_path, 0)
+    img_name = img_path.split('/')[-1].split('.')
+
+    final_img = None
+    # open outputed plate as gray
+    thresh = 130
+    img_bw = cv2.threshold(img.copy(), thresh, 255, cv2.THRESH_BINARY)[1]
+    
+    contours, hier = cv2.findContours(img_bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    max_h, max_w = 0, 0
+    for cts in contours:
+        x, y, w, h = cv2.boundingRect(cts)
+
+        segmented_plate_img = cv2.rectangle(img_bw.copy(),(x,y),(x+w,y+h),(0,255,0),1)
+        segmented_plate_img = segmented_plate_img[y:y+h, x:x+w]
+
+        if w >= max_w and h >= max_h:
+            max_w, max_h = w, h
+            final_img = segmented_plate_img
+    # now save the reduced img
+    cv2.imwrite(folder_to_save + img_name[0] + '.jpg', final_img)
+
+'''
+ACTUAL PROBLEM [X] SOLVED
+ Quando segmento a placa, alguns contornos não são oq eu quero
+ Então observando as dimensões das letras que foram segmentadas corretamente
+pude perceber que elas possuem uma largura e altura semelhantes
+ Para resolver este problema, vou seguir os seguintes passos:
+ 1. Iterar os contornos e descobrir qual é a maior média de largura/altura dos contornos
+ 2. Iterar novamente os contornos e só salvar as que estiverem na média desejada 
+'''
 def plate_segmentation(img_path, *args):
     # define folder to save the imgs
     if len(args) > 0:
@@ -296,30 +330,73 @@ def plate_segmentation(img_path, *args):
         folder_to_save = output_path
     #0 flag = cv2.IMREAD_GRAYSCALE:
     img = cv2.imread(img_path, 0)
-    img_name = img_path.split('/')
-    img_name = img_name[-1].split('.')
-
-    cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU,img)
-    image, contours = cv2.findContours(img, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
-    contours = sorted(contours, key=lambda ctr: cv2.boundingRect(ctr)[0])
-    cv2.imshow("contours", image)
-    cv2.waitKey(0)
+    img_name = img_path.split('/')[-1].split('.')
     
-    d=0
-    for ctr in contours:
-        # get bounding box
-        x, y, w, h = cv2.boundingRect(ctr)
-        # getting ROI
-        roi = image[y:y+h, x:x+w]
+    #I have set a random value to thresh
+    thresh = 130
+    img_bw = cv2.threshold(img, thresh, 255, cv2.THRESH_BINARY)[1]
 
-        cv2.imshow('character: %d'%d,roi)
-        cv2.imwrite(folder_to_save + img_name[0] + 'char_%d.jpg'%d, roi)
+    contours, hier = cv2.findContours(img_bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    # loop to discover which regions are of my interest
+    limit_range = []
+    class Limit:
+        def __init__(self, lower_w, lower_h, upper_w, upper_h, ocurrency, idx):
+            self.limits = {'lower_w':lower_w, "lower_h":lower_h, "upper_h":upper_h, "upper_w":upper_w, "ocurrency":ocurrency, "idx":idx}
+    limit_range.append(Limit(100, 100, 200, 200, 1, -1))
+    # NOTE: prm is used to define how much we will let the range variate
+    idx, prm = 0, 1
+    for cts in contours:
+        #logger.debug('--- iter {} ---'.format(idx))
+
+        _, _, w, h = cv2.boundingRect(cts)
+        #logger.debug('\nw:{}\nh:{}'.format(w, h))
         
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        
-        d+=1
+        new_range_h, new_range_w = True, True
+        for item in limit_range:
+            if w >= item.limits['lower_w'] and w <= item.limits['upper_w']:
+                new_range_w = False
+            if h >= item.limits['lower_h'] and h <= item.limits['upper_h']:
+                new_range_h = False
+            if not new_range_h and not new_range_w:
+                new_ocur = item.limits["ocurrency"] + 1
+                item.limits.update({"ocurrency": new_ocur})
+        # both are new ranges
+        if new_range_w and new_range_h:
+            limit_range.append(Limit(w-prm, h-prm, w+prm, h+prm, 1, idx))
+
+        idx += 1
+    '''
+    # for to check the limit list
+    for item in limit_range:
+        print(item.limits)
+    '''
+    # Now we have a list with the most range occurencys
+    # we can notice that the most ocurrency range is probably a digit/char
+    # so what we need to do is get the w/h ranges from the most ocurrency item on the list
+    # and we will be able to only segment the desired elements
+    idx, highest_ocur = 0, 0
+    for i in range(0, len(limit_range)):
+        if limit_range[i].limits['ocurrency'] > highest_ocur:
+            highest_ocur = limit_range[i].limits['ocurrency']
+            idx = i
+    #print(limit_range[idx].limits)
+
+    char_count = 0
+    for cts in contours:
+        x, y, w, h = cv2.boundingRect(cts)
+        #logger.debug('\nx:{}\ny:{}\nw:{}\nh:{}'.format(x, y, w, h))
+        # here we will test if the actual w/h are whithin our desired w/h
+        # the reason i added another prm to the limits was bcause for some imgs the result was not good
+        prm2 = 1
+        if w >= limit_range[idx].limits['lower_w']-prm2 and w <= limit_range[idx].limits['upper_w']+prm2:
+            if h >= limit_range[idx].limits['lower_h']-prm2 and h <= limit_range[idx].limits['upper_h']+prm2:
+                segmented_char_img = cv2.rectangle(img_bw.copy(),(x,y),(x+w,y+h),(0,255,0),1)
+                segmented_char_img = segmented_char_img[y:y+h, x:x+w]
+
+                img_char_path = output_path+img_name[0]+'_char_{}.jpg'.format(char_count) 
+                cv2.imwrite(img_char_path, segmented_char_img)
+                char_count += 1
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':    
     pass

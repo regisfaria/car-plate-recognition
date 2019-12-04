@@ -13,9 +13,14 @@ MLP for car plate recognition
 # [ ] send the segmented imgs to the network
 # [ ] output info
 
-#######  TO-DO LIST  #######
+##########  TO-DO LIST  ###########
 # [ ] implement the network
 # [ ] find a training digit and char dataset
+# [ ] find a way to get how many files are in a folder
+# [ ] threading for plate recognition
+
+# [ ] check this out later - dataset
+# / mnist / emnist /
 
 import sys
 import utils
@@ -109,11 +114,16 @@ if __name__ == '__main__':
         logger.debug(e)
     '''
     
-    
     # test for 1 img only 
     try:
-        image = dataset_path[0] + '01.jpg'
+        image = dataset_path[0] + '08.jpg'
+        imageout = output_path + '08_plate.jpg'
+        # Extract car's plate from a car img
         utils.extract_car_plate(image, output_path)
-        #utils.plate_segmentation(image, output_path)
+        # Improvements on the car extracted plate, removing some blank sides
+        utils.pre_segmentation_improvements(imageout, output_path)
+        # Segmentation on each character of the plate
+        utils.plate_segmentation(imageout, output_path)
     except Exception as e:
         logger.debug(e)
+    
