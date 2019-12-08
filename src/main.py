@@ -10,8 +10,8 @@ MLP for car plate recognition
 # [X] implement a way to check if the extract plate was a success if not skip
 # [X] segmentation of the car plate
 # [X] save the segmented plate as a new img for each char
-# [ ] make a list return with path for the segmented chars/digits 
-# [ ] create a function to re-scale the digits/chars. maybe 28x28 *pick same as dataset
+# [X] make a list return with path for the segmented chars/digits 
+# [X] create a function to re-scale the digits/chars. maybe 28x28 *pick same as dataset
 # [ ] implement the network
 # [ ] send the segmented imgs to the network
 # [ ] output info
@@ -19,7 +19,6 @@ MLP for car plate recognition
 
 ##########  OPTIONAL STEPS  ###########
 # [ ] find a way to get how many files are in a folder and delete the invalid ones
-# [ ] threading for opencv2 operations
 
 import sys
 import utils
