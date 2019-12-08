@@ -7,20 +7,19 @@ MLP for car plate recognition
 
 #######  DEVELOPMENT STEPS  #######
 # [X] from a car image, extract it's plate
-# [ ] implement a way to check if the extract plate was a success
+# [X] implement a way to check if the extract plate was a success if not skip
 # [X] segmentation of the car plate
 # [X] save the segmented plate as a new img for each char
+# [ ] make a list return with path for the segmented chars/digits 
+# [ ] create a function to re-scale the digits/chars. maybe 28x28 *pick same as dataset
 # [ ] implement the network
 # [ ] send the segmented imgs to the network
 # [ ] output info
 # [ ] finish github repo
 
-##########  OPTIONAL LIST  ###########
-# [ ] find a training digit and char dataset
-# [ ] find a way to get how many files are in a folder
-# [ ] threading for plate recognition
-# [ ] check this out later - dataset
-# / mnist / emnist /
+##########  OPTIONAL STEPS  ###########
+# [ ] find a way to get how many files are in a folder and delete the invalid ones
+# [ ] threading for opencv2 operations
 
 import sys
 import utils
@@ -31,7 +30,16 @@ from tqdm import tqdm
 import logging
 from logging import handlers
 
-from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+
+from keras.models import Sequential
+from keras.layers.core import Dense, Activation, Dropout
+from keras.datasets import mnist
+from keras.utils import np_utils
+
+# random seed
+np.random.seed(9)
 
 # Setting directories 
 project_directory = str(utils.get_project_root())
@@ -70,39 +78,41 @@ stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(formatter)
 logger.addHandler(stdout_handler)
 
-def select_dataset(path):
-    '''
-    This will return a list containing both test and train dataset location
-    where list[0] == train and list[1] == test
-    '''
-    
-    print('-----------------------------------------------------------------')
-    logger.debug('Please, select one dataset:')
-    logger.debug('Dataset 1: Turkish car plates')
-    logger.debug('Dataset 2: Random car plates')
-    logger.debug('Insert dataset value:')
-    selected = int(input())
-    
-    path_list = []
-    if selected == 1:
-        path_list.append(path + '/datasets/1/train/')
-        path_list.append(path + '/datasets/1/test/')
-    elif selected == 2:
-        path_list.append(project_directory + '/datasets/2/train/')
-        path_list.append(project_directory + '/datasets/2/test/')
-    else:
-        logger.debug('Invalid option, make sure to pick one of the listed numbers.')
-    print('-----------------------------------------------------------------')
-
-    return path_list
-#######################################################
-
 if __name__ == '__main__':
-    #[ ] here i'll create a menu
-    ############################
-    dataset_path = select_dataset(project_directory)
+
+    # image dataset selection
+    # list[0] == train and list[1] == test
+    dataset_path = []
+    dataset_path.append(project_directory + '/datasets/1/train/')
+    dataset_path.append(project_directory + '/datasets/1/test/')
 
     '''
+    while True:
+        print('\n\n---------------------------------------------------------------------------')
+        # I'll add more options if needed
+        logger.debug("----- CAR'S PLATE RECOGNITION MLP -----")
+        logger.debug("NAVIGATION MENU")
+        logger.debug("1. Train network")
+        logger.debug("2. Use the network")
+        logger.debug("3. Quit\n")
+        user_choice = int(input())
+        if user_choice == 1:
+            pass
+        elif user_choice == 2:
+            pass
+        elif user_choice == 3:
+            logger.debug("Tks for using")
+            print('---------------------------------------------------------------------------')
+            break
+        else:
+            logger.debug('Invalid choice, try again.')
+        print('---------------------------------------------------------------------------')
+    '''
+    # Imgs with problem: 
+    # 03, 04, 13, 14, 15, 16
+    # 17, 20
+    
+    #'''
     # test for multiple imgs
     try:    
         # here i will make a quick test for img extract
@@ -111,17 +121,48 @@ if __name__ == '__main__':
                 image = dataset_path[0] + '0' + str(i) + '.jpg'
             else:
                 image = dataset_path[0] + str(i) + '.jpg'
-            utils.extract_car_plate(image, output_path+'plate_out/')
+            # Extract car's plate from a car img
+            success = utils.extract_car_plate(image, output_path)
+            if not success:
+                logger.debug('Invalid plate extraction for "{}". Skipping...'.format(image.split('/')[-1]))
+                continue
 
-            utils.plate_segmentation(image, output_path+'plate_out/')
+            if i < 10:
+                image_extracted = output_path + '0' + str(i) + '_plate.jpg'
+            else:
+                image_extracted = output_path + str(i) + '_plate.jpg'
+            
+            # Improvements on the car extracted plate, removing some blank sides
+            success = utils.pre_segmentation_improvements(image_extracted, output_path)
+            if not success:
+                logger.debug('Invalid pre segmentation for "{}". Skipping...'.format(image_extracted.split('/')[-1]))
+                # [ ] find a way to list and then delete the file created in output
+                continue
+            
+            # Segmentation on each character of the plate
+            success, char_imgs = utils.plate_segmentation(image_extracted, output_path)
+            if not success:
+                logger.debug('Invalid segmentation for "{}". Skipping...'.format(image_extracted.split('/')[-1]))
+                # [ ] find a way to list and then delete the file created in output
+                continue
+            # After reshaping the img to the same amount of pixels from my dataset, i'll now need
+            # to make a posprocessing, because the first row and collunm of the image is a black line
+            # and in some cases that could cause a problem
+            for img in char_imgs:
+                utils.posprocessing(img)
+            
+            # Now i'll send the chars to the network
+
+            # read development steps
     except Exception as e:
         logger.debug(e)
+    #'''
     '''
-    
     # test for 1 img only 
+    # Imgs with problem: 03, 04, 13, 14, 15, 16
     try:
-        image = dataset_path[0] + '08.jpg'
-        imageout = output_path + '08_plate.jpg'
+        image = dataset_path[0] + '05.jpg'
+        imageout = output_path + '05_plate.jpg'
         # Extract car's plate from a car img
         utils.extract_car_plate(image, output_path)
         # Improvements on the car extracted plate, removing some blank sides
@@ -130,4 +171,4 @@ if __name__ == '__main__':
         utils.plate_segmentation(imageout, output_path)
     except Exception as e:
         logger.debug(e)
-    
+    '''
