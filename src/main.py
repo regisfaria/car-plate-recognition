@@ -1,9 +1,3 @@
-'''
-MLP for car plate recognition 
-
-@AUTHOR: Régis Faria
-@EMAIL: regisprogramming@gmail.com
-'''
 #######  DEVELOPMENT STEPS  #######
 # [X] from a car image, extract it's plate
 # [X] implement a way to check if the extract plate was a success if not skip
@@ -12,13 +6,13 @@ MLP for car plate recognition
 # [X] make a list return with path for the segmented chars/digits 
 # [X] create a function to re-scale the digits/chars. maybe 28x28 *pick same as dataset
 # [X] implement the network
+# [ ] find vehicle imgs
 # [ ] send the segmented imgs to the network
-# [ ] output info
+# [X] output info
 # [ ] finish github repo
 
 import utils
 import network
-
 import sys
 import os
 import time
@@ -64,11 +58,9 @@ stdout_handler.setFormatter(formatter)
 logger.addHandler(stdout_handler)
 
 if __name__ == '__main__':
-    dataset_path = []
-    dataset_path.append(project_directory + '/datasets/1/train/')
-    dataset_path.append(project_directory + '/datasets/1/test/')
+    dataset_path = project_directory + '/datasets/vehicles/'
 
-    '''
+    
     while True:
         print('\n\n---------------------------------------------------------------------------')
         # I'll add more options if needed
@@ -113,6 +105,13 @@ if __name__ == '__main__':
                 logger.debug('You have not loaded the model')
                 logger.debug("Please load(op2) or train(op1) the network before you chose this option")
                 continue
+            # STEPS
+            # 1. List possible car imgs from dataset path
+            # 2. Extract plate from it
+            # 3. presegment
+            # 4. segment
+            # 5. posseg
+            # 6. send it to the network
         # quit
         elif user_choice == 5:
             logger.debug("Tks for using")
@@ -122,15 +121,15 @@ if __name__ == '__main__':
         else:
             logger.debug('Invalid choice, try again.')
         print('---------------------------------------------------------------------------')
+    
     '''
-
     try:    
         # here i will make a quick test for img extract
         for i in tqdm(range(1, 21)):
             if i < 10:
-                image = dataset_path[0] + '0' + str(i) + '.jpg'
+                image = dataset_path + '0' + str(i) + '.jpg'
             else:
-                image = dataset_path[0] + str(i) + '.jpg'
+                image = dataset_path + str(i) + '.jpg'
             # Extract car's plate from a car img
             success = utils.extract_car_plate(image, output_path)
             if not success:
@@ -159,18 +158,18 @@ if __name__ == '__main__':
             # to make a posprocessing, because the first row and collunm of the image is a black line
             # and in some cases that could cause a problem
             for img in char_imgs:
-                utils.posprocessing(img)
+                utils.posprocessing(img, 50)
             
             # Now i'll send the chars to the network
             # read development steps
     except Exception as e:
         logger.debug(e)
-    #'''
+    '''
     '''
     # test for 1 img only 
     # Imgs with problem: 03, 04, 13, 14, 15, 16
     try:
-        image = dataset_path[0] + '05.jpg'
+        image = dataset_path + '05.jpg'
         imageout = output_path + '05_plate.jpg'
         # Extract car's plate from a car img
         utils.extract_car_plate(image, output_path)
