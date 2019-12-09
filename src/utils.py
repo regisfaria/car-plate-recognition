@@ -1,19 +1,10 @@
-'''
-Here i'll be writting utility functions
-
-@AUTHOR: Régis Faria
-@EMAIL: regisprogramming@gmail.com
-'''
 import os
 import time
 import sys
 import cv_functions as Functions
-
 from pathlib import Path
 import logging
 from logging import handlers
-
-from PIL import Image
 import cv2
 import numpy as np
 import math
@@ -332,83 +323,6 @@ def pre_segmentation_improvements(img_path, *args):
     except Exception as e:
         logger.debug('Exception: {} found in file "{}"'.format(e, img_name[0]))
         return False
-'''
-def plate_segmentation(img_path, *args):
-    # define folder to save the imgs
-    if len(args) > 0:
-        folder_to_save = args[0]
-    else:
-        folder_to_save = output_path
-    #0 flag = cv2.IMREAD_GRAYSCALE:
-    img = cv2.imread(img_path, 0)
-    img_name = img_path.split('/')[-1].split('.')
-    
-    #I have set a random value to thresh
-    thresh = 130
-    img_bw = cv2.threshold(img, thresh, 255, cv2.THRESH_BINARY)[1]
-
-    contours, hier = cv2.findContours(img_bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    # loop to discover which regions are of my interest
-    limit_range = []
-    class Limit:
-        def __init__(self, lower_w, lower_h, upper_w, upper_h, ocurrency, idx):
-            self.limits = {'lower_w':lower_w, "lower_h":lower_h, "upper_h":upper_h, "upper_w":upper_w, "ocurrency":ocurrency, "idx":idx}
-    # random limit setup to initialize
-    limit_range.append(Limit(100, 100, 200, 200, 1, -1))
-    # NOTE: prm is used to define how much we will let the range variate
-    idx, prm = 0, 1
-    for cts in contours:
-        #logger.debug('--- iter {} ---'.format(idx))
-
-        _, _, w, h = cv2.boundingRect(cts)
-        #logger.debug('\nw:{}\nh:{}'.format(w, h))
-        
-        new_range_h, new_range_w = True, True
-        for item in limit_range:
-            if w >= item.limits['lower_w'] and w <= item.limits['upper_w']:
-                new_range_w = False
-            if h >= item.limits['lower_h'] and h <= item.limits['upper_h']:
-                new_range_h = False
-            if not new_range_h and not new_range_w:
-                new_ocur = item.limits["ocurrency"] + 1
-                item.limits.update({"ocurrency": new_ocur})
-        # both are new ranges
-        if new_range_w and new_range_h:
-            limit_range.append(Limit(w-prm, h-prm, w+prm, h+prm, 1, idx))
-
-        idx += 1
-    
-    # for to check the limit list
-    #for item in limit_range:
-    #print(item.limits)
-    
-    # Now we have a list with the most range occurencys
-    # we can notice that the most ocurrency range is probably a digit/char
-    # so what we need to do is get the w/h ranges from the most ocurrency item on the list
-    # and we will be able to only segment the desired elements
-    idx, highest_ocur = 0, 0
-    for i in range(0, len(limit_range)):
-        if limit_range[i].limits['ocurrency'] > highest_ocur:
-            highest_ocur = limit_range[i].limits['ocurrency']
-            idx = i
-    #print(limit_range[idx].limits)
-
-    char_count = 0
-    for cts in contours:
-        x, y, w, h = cv2.boundingRect(cts)
-        #logger.debug('\nx:{}\ny:{}\nw:{}\nh:{}'.format(x, y, w, h))
-        # here we will test if the actual w/h are whithin our desired w/h
-        # the reason i added another prm to the limits was bcause for some imgs the result was not good
-        prm2 = 1
-        if w >= limit_range[idx].limits['lower_w']-prm2 and w <= limit_range[idx].limits['upper_w']+prm2:
-            if h >= limit_range[idx].limits['lower_h']-prm2 and h <= limit_range[idx].limits['upper_h']+prm2:
-                segmented_char_img = cv2.rectangle(img_bw.copy(),(x,y),(x+w,y+h),(0,255,0),1)
-                segmented_char_img = segmented_char_img[y:y+h, x:x+w]
-
-                img_char_path = output_path+img_name[0]+'_char_{}.jpg'.format(char_count) 
-                cv2.imwrite(img_char_path, segmented_char_img)
-                char_count += 1
-'''
 
 def reshape_img(img, width, height):
     dim = (width, height)
@@ -444,7 +358,7 @@ def plate_segmentation(img_path, *args):
             if Functions.checkIfChar(possiblechar) is True and h >= 35 and h <= 42:
                 segmented_char_img = cv2.rectangle(img_bw.copy(),(x,y),(x+w,y+h),(0,255,0),1)
                 segmented_char_img = segmented_char_img[y:y+h, x:x+w]
-                logger.debug('img "{}_char_{}" shape: {}'.format(img_name[0], char_count, segmented_char_img.shape))
+                #logger.debug('img "{}_char_{}" shape: {}'.format(img_name[0], char_count, segmented_char_img.shape))
 
                 img_char_path = output_path+img_name[0]+'_char_{}.jpg'.format(char_count)
                 segmented_paths.append(img_char_path)
@@ -465,15 +379,21 @@ def plate_segmentation(img_path, *args):
 def posprocessing(img_path, thresh):
     img = cv2.imread(img_path, 0)
     rows,cols = img.shape
+    # remove unnecessary lines that appears on reshaping
+    for i in range(0, rows):
+        for j in range(0, cols):
+            if i == 0 or i == 1:
+                img[i, j] = 255
+            if j == 0 or j == 1:
+                img[i, j] = 255
+    # the EMNIST dataset used have a black background and white characters
+    # my segmented files are white background and black characters
+    # below code is to invert that based on a thresh pixel value
     for i in range(0, rows):
         for j in range(0, cols):
             if img[i, j] < thresh:
                 img[i, j] = 255
             elif img[i, j] > thresh:
-                img[i, j] = 1
+                img[i, j] = 0
+    # save new img
     cv2.imwrite(img_path, img)
-
-    
-if __name__ == '__main__':    
-    test_img = output_path + '01_plate_char_0.jpg'
-    posprocessing(test_img)
