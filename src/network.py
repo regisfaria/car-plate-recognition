@@ -13,12 +13,14 @@ from logging import handlers
 import numpy as np
 import matplotlib.pyplot as plt
 from keras.models import Sequential
-#maybe my problem is this .core [ ] check it out later
 from keras.layers.core import Dense, Activation, Dropout, Flatten
 from keras.datasets import mnist
 from keras.utils import np_utils
 from keras.preprocessing.image import ImageDataGenerator
 from tflearn.data_utils import image_preloader as preloader
+from tflearn.data_utils import build_hdf5_image_dataset
+import emnist
+import h5py
 
 # Setting directories 
 project_directory = str(utils.get_project_root())
@@ -51,8 +53,8 @@ stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(formatter)
 logger.addHandler(stdout_handler)
 
-'''
-def train_digit():
+
+def train_emnist():
     #######################################################
     ################### Network setup #####################
 
@@ -60,14 +62,17 @@ def train_digit():
     # v_length - Dimension of flattened input image size i.e. if input image size is [28x28], then v_length = 784
     # network inputs
     epochs = 25
-    n_classes = 10
-    batch_size = 128
-    train_size = 60000
-    test_size = 10000
+    n_classes = 62
+    batch_size = 256
+    train_size = 697932
+    test_size = 116323
     v_length = 784
 
-    # split the mnist data into train and test
-    (trainData, trainLabels), (testData, testLabels) = mnist.load_data()
+    # split the emnist data into train and test
+    trainData, trainLabels = emnist.extract_training_samples('byclass') 
+    testData, testLabels = emnist.extract_test_samples('byclass')
+
+    # print shapes
     logger.debug("[INFO] train data shape: {}".format(trainData.shape))
     logger.debug("[INFO] test data shape: {}".format(testData.shape))
     logger.debug("[INFO] train samples: {}".format(trainData.shape[0]))
@@ -83,6 +88,8 @@ def train_digit():
     trainData /= 255
     testData /= 255
 
+    logger.debug("[INFO] after re-shape")
+    # print new shape
     logger.debug("[INFO] train data shape: {}".format(trainData.shape))
     logger.debug("[INFO] test data shape: {}".format(testData.shape))
     logger.debug("[INFO] train samples: {}".format(trainData.shape[0]))
@@ -97,9 +104,11 @@ def train_digit():
     model.add(Dense(512, input_shape=(784,)))
     model.add(Activation("relu"))
     model.add(Dropout(0.2))
+    
     model.add(Dense(256))
     model.add(Activation("relu"))
     model.add(Dropout(0.2))
+    
     model.add(Dense(n_classes))
     model.add(Activation("softmax"))
 
@@ -109,7 +118,7 @@ def train_digit():
     model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
 
     # fit the model
-    history = model.fit(trainData, mTrainLabels, validation_data=(testData, mTestLabels), batch_size=batch_size, nb_epoch=epochs, verbose=2)
+    history = model.fit(trainData, mTrainLabels, validation_data=(testData, mTestLabels), batch_size=batch_size, epochs=epochs, verbose=2)
 
     # print the history keys
     logger.debug(history.history.keys())
@@ -140,123 +149,107 @@ def train_digit():
     logger.debug("[INFO] test score - {}".format(scores[0]))
     logger.debug("[INFO] test accuracy - {}".format(scores[1]))
     
+    #model.save_weights('first_try.h5')
+
     return model
-'''
 
-
-'''
-def test_digit(model):
-    ##################### TEST #####################
-
-    q = 'c'
-    while q != 'q':
-        # grab some test images from the test data
-        a = 1
-        b = 5
-        v_length = 784
-        test_size = 10000
-        (trainData, trainLabels), (testData, testLabels) = mnist.load_data()
-        testData = testData.reshape(test_size, v_length)
-        testData = testData.astype("float32")
-        testData /= 255
-
-        test_images = testData[a:b]
-
-        # reshape the test images to standard 28x28 format
-        test_images = test_images.reshape(test_images.shape[0], 28, 28)
-        logger.debug("[INFO] test images shape - {}".format(test_images.shape))
-
-        # loop over each of the test images
-        for i, test_image in enumerate(test_images, start=1):
-            # grab a copy of test image for viewing
-            org_image = test_image
-            
-            # reshape the test image to [1x784] format so that our model understands
-            test_image = test_image.reshape(1,784)
-            
-            # make prediction on test image using our trained model
-            prediction = model.predict_classes(test_image, verbose=0)
-            
-            # display the prediction and image
-            logger.debug("[INFO] I think the digit is - {}".format(prediction[0]))
-            plt.subplot(220+i)
-            plt.imshow(org_image, cmap=plt.get_cmap('gray'))
-
-        plt.show()
-        q = input('write "q" to quit or anything to test again')
-'''
-
-def train_character():
+def load_trained_model(epochs):
     #######################################################
-    ################### Network input #####################
+    ################### Network setup #####################
 
-    train_path = '/home/regisf/Documents/dev/python/neural-networks/car_plate_recognition/datasets/ch74k/Fnt/train'
-    test_path = '/home/regisf/Documents/dev/python/neural-networks/car_plate_recognition/datasets/ch74k/Fnt/test'
-    validation_path = '/home/regisf/Documents/dev/python/neural-networks/car_plate_recognition/datasets/ch74k/Fnt/validation'
-    
-    epochs = 20
-    
-    # letters and digits(alphabet + digits = 36, but we have some upper and lower case letters)
+    # batch_size - Number of images given to the model at a particular instance
+    # v_length - Dimension of flattened input image size i.e. if input image size is [28x28], then v_length = 784
+    # network inputs
+    epochs = epochs
     n_classes = 62
-    
-    # if stays to slow change it to '254'
-    batch_size = 254
-    batch_size2 = 2
-    
-    # total imgs on dataset: 62992
-    # each folder have: 1016
-    train_size = 62992
-    
-    v_length = 128*128
-    input_shape = (128,128)
+    batch_size = 256
+    train_size = 697932
+    test_size = 116323
+    v_length = 784
 
-    #######################################################
-    #######################################################
+    # split the emnist data into train and test
+    trainData, trainLabels = emnist.extract_training_samples('byclass') 
+    testData, testLabels = emnist.extract_test_samples('byclass')
+
+    # reshape the dataset
+    trainData = trainData.reshape(train_size, v_length)
+    testData = testData.reshape(test_size, v_length)
+
+    trainData = trainData.astype("float32")
+    testData = testData.astype("float32")
+
+    trainData /= 255
+    testData /= 255
+
+    # convert class vectors to binary class matrices --> one-hot encoding
+    mTrainLabels = np_utils.to_categorical(trainLabels, n_classes)
+    mTestLabels = np_utils.to_categorical(testLabels, n_classes)
 
     # create the model
     model = Sequential()
-    model.add(Dense(508, input_shape=input_shape, activation='relu'))
-    model.add(Dense(254, activation='relu'))
-    model.add(Dense(n_classes, activation='softmax'))
+    model.add(Dense(512, input_shape=(784,)))
+    model.add(Activation("relu"))
+    model.add(Dropout(0.2))
+    
+    model.add(Dense(256))
+    model.add(Activation("relu"))
+    model.add(Dropout(0.2))
+    
+    model.add(Dense(n_classes))
+    model.add(Activation("softmax"))
 
-    #logger.debug(model.summary())
-    # compile ||categorical_crossentropy  binary_crossentropy|| adam  rmsprop ||
+    # load weights
+    model.load_weights('model_weights.h5')
+
+    # summarize the model
+    model.summary()
+    # compile
     model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
-    
-    # [ ] try changing categorical labels to false after || " normalize=True " change this as well
-    train_x, train_y = preloader(train_path, image_shape=(128,128), mode='folder', categorical_labels=True, normalize=True)
-    test_x, test_y = preloader(test_path, image_shape=(128,128), mode='folder', categorical_labels=True, normalize=True)
-    
-    trainData = np.array(train_x)
-    testData = np.array(test_y)
-    
-    mTrainLabels = np_utils.to_categorical(train_y, n_classes)
-    mTestLabels = np_utils.to_categorical(test_y, n_classes)
-    
-    model.fit(trainData, mTrainLabels, validation_data=(testData, mTestLabels), batch_size=batch_size, epochs=epochs)
-    '''
-    # create a data generator
-    datagen = ImageDataGenerator(
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True)
-
-    # load and iterate training dataset
-    train_it = datagen.flow_from_directory(train_path, target_size=(128, 128), class_mode='categorical', batch_size=batch_size)
-    # load and iterate validation dataset
-    #val_it = datagen.flow_from_directory(validation_path, target_size=(128, 128), class_mode='categorical', batch_size=batch_size2)
-    # load and iterate test dataset
-    #test_it = datagen.flow_from_directory(test_path, target_size=(128, 128), class_mode='categorical', batch_size=batch_size2)
-    batchX, batchy = train_it.next()
-    print('Batch shape=%s, min=%.3f, max=%.3f' % (batchX.shape, batchX.min(), batchX.max()))
-    print("batch y: {}".format(batchy))
-    
-    # fit model
-    model.fit_generator(train_it, epochs=epochs, verbose=1, steps_per_epoch=2000)
-    #model.save_weights('first_try.h5')  # always save your weights after training or during training
-    '''
+    # evaluate the model
+    scores = model.evaluate(testData, mTestLabels, verbose=0)
 
     return model
+
+def test_emnist(model, n1, n2):
+    ##################### TEST #####################
+    # grab some test images from the test data
+    if n2 > n1: n1, n2 = n2, n1
+    a = n1
+    b = n2
+    v_length = 784
+    test_size = 116323
+    
+    # load train data
+    testData, testLabels = emnist.extract_test_samples('byclass')
+    
+    # reshape
+    testData = testData.reshape(test_size, v_length)
+    testData = testData.astype("float32")
+    testData /= 255
+
+    test_images = testData[a:b]
+
+    # reshape the test images to standard 28x28 format
+    test_images = test_images.reshape(test_images.shape[0], 28, 28)
+    logger.debug("[INFO] test images shape - {}".format(test_images.shape))
+
+    # loop over each of the test images
+    for i, test_image in enumerate(test_images, start=1):
+        # grab a copy of test image for viewing
+        org_image = test_image
+        
+        # reshape the test image to [1x784] format so that our model understands
+        test_image = test_image.reshape(1,784)
+        
+        # make prediction on test image using our trained model
+        prediction = model.predict_classes(test_image, verbose=0)
+        
+        # display the prediction and image
+        logger.debug("[INFO] I think the digit is - {}".format(prediction[0]))
+        plt.subplot(220+i)
+        plt.imshow(org_image, cmap=plt.get_cmap('gray'))
+
+    plt.show()
 
 # [ ] 
 def identify_plate(model, imgs_path, size):
@@ -310,5 +303,6 @@ if __name__ == '__main__':
     '''
     p = '/home/regisf/Documents/dev/python/neural-networks/car_plate_recognition/output/01_plate_char_1.jpg'
 
-    model = train_character()
-    identify_plate(model, p, 1)
+    model = load_trained_model()
+    test_emnist(model)
+    #identify_plate(model, p, 1)
