@@ -450,7 +450,7 @@ def plate_segmentation(img_path, *args):
                 segmented_paths.append(img_char_path)
                 
                 # before saving, i will reshape the imgs
-                segmented_char_img = reshape_img(segmented_char_img, 128, 128)
+                segmented_char_img = reshape_img(segmented_char_img, 28, 28)
                 
                 # save img
                 cv2.imwrite(img_char_path, segmented_char_img)
@@ -462,20 +462,15 @@ def plate_segmentation(img_path, *args):
         logger.debug('Exception: {} found in file "{}_char_{}"'.format(e, img_name[0], char_count))
         return False
 
-def posprocessing(img_path):
+def posprocessing(img_path, thresh):
     img = cv2.imread(img_path, 0)
     rows,cols = img.shape
     for i in range(0, rows):
         for j in range(0, cols):
-            if i == 0 or i == 1 or i == 2 or i == 3:
+            if img[i, j] < thresh:
                 img[i, j] = 255
-            if j == 0 or j == 1 or j == 2 or j == 3 or j == 4:
-                img[i, j] = 255
-            try:
-                if j == 5 and img[i+1, j] >= 30:
-                    img[i, j] == 255
-            except Exception as e:
-                logger.debug(e)
+            elif img[i, j] > thresh:
+                img[i, j] = 1
     cv2.imwrite(img_path, img)
 
     
