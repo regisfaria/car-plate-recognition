@@ -5,22 +5,17 @@
 import sys
 import utils
 import os
-# The below 2 lines is to hide keras warnings
-
 import logging
 from logging import handlers
-
+import tensorflow as tf
+import emnist
+import h5py
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from keras.models import Sequential
 from keras.layers.core import Dense, Activation, Dropout, Flatten
-from keras.datasets import mnist
 from keras.utils import np_utils
-from keras.preprocessing.image import ImageDataGenerator
-from tflearn.data_utils import image_preloader as preloader
-from tflearn.data_utils import build_hdf5_image_dataset
-import emnist
-import h5py
 
 # Setting directories 
 project_directory = str(utils.get_project_root())
@@ -53,15 +48,14 @@ stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(formatter)
 logger.addHandler(stdout_handler)
 
-
-def train_emnist():
+def train_emnist(u_epochs):
     #######################################################
     ################### Network setup #####################
 
     # batch_size - Number of images given to the model at a particular instance
     # v_length - Dimension of flattened input image size i.e. if input image size is [28x28], then v_length = 784
     # network inputs
-    epochs = 25
+    epochs = u_epochs
     n_classes = 62
     batch_size = 256
     train_size = 697932
@@ -153,16 +147,10 @@ def train_emnist():
 
     return model
 
-def load_trained_model(epochs):
+def load_trained_model():
     #######################################################
     ################### Network setup #####################
-
-    # batch_size - Number of images given to the model at a particular instance
-    # v_length - Dimension of flattened input image size i.e. if input image size is [28x28], then v_length = 784
-    # network inputs
-    epochs = epochs
     n_classes = 62
-    batch_size = 256
     train_size = 697932
     test_size = 116323
     v_length = 784
@@ -212,8 +200,16 @@ def load_trained_model(epochs):
 
 def test_emnist(model, n1, n2):
     ##################### TEST #####################
+    # EMNIST output infos as numbers, so I created a label dict, so it will output it respective class
+    label_value = {'0':'0', '1':'1', '2':'2', '3':'3', '4':'4', '5':'5', '6':'6', '7':'7', '8':'8', '9':'9', 
+                   '10':'A', '11':'B', '12':'C', '13':'D', '14':'E', '15':'F', '16':'G', '17':'H', '18':'I', '19':'J', 
+                   '20':'K', '21':'L', '22':'M', '23':'N', '24':'O', '25':'P', '26':'Q', '27':'R', '28':'S', '29':'T', 
+                   '30':'U', '31':'V', '32':'W', '33':'X', '34':'Y', '35':'Z', '36':'a', '37':'b', '38':'c', '39':'d',
+                   '40':'e', '41':'f', '42':'g', '43':'h', '44':'i', '45':'j', '46':'k', '47':'l', '48':'m', '49':'n',
+                   '50':'o', '51':'p', '52':'q', '53':'r', '54':'s', '55':'t', '56':'u', '57':'v', '58':'w', '59':'x',
+                   '60':'y', '61':'z'}
+    
     # grab some test images from the test data
-    if n2 > n1: n1, n2 = n2, n1
     a = n1
     b = n2
     v_length = 784
@@ -231,7 +227,6 @@ def test_emnist(model, n1, n2):
 
     # reshape the test images to standard 28x28 format
     test_images = test_images.reshape(test_images.shape[0], 28, 28)
-    logger.debug("[INFO] test images shape - {}".format(test_images.shape))
 
     # loop over each of the test images
     for i, test_image in enumerate(test_images, start=1):
@@ -245,64 +240,73 @@ def test_emnist(model, n1, n2):
         prediction = model.predict_classes(test_image, verbose=0)
         
         # display the prediction and image
-        logger.debug("[INFO] I think the digit is - {}".format(prediction[0]))
+        logger.debug("I think the character is - {}".format(label_value[str(prediction[0])]))
         plt.subplot(220+i)
         plt.imshow(org_image, cmap=plt.get_cmap('gray'))
 
+    logger.debug('Press Q to close')
     plt.show()
 
-# [ ] 
-def identify_plate(model, imgs_path, size):
+# params: 1- mlmodel, 2- root path to the prediction imgs, 3- how many imgs we have in imgs_path
+def identify_plate(model, imgs_path, test_size):
+    # EMNIST output infos as numbers, so I created a label dict, so it will output it respective class
+    label_value = {'0':'0', '1':'1', '2':'2', '3':'3', '4':'4', '5':'5', '6':'6', '7':'7', '8':'8', '9':'9', 
+                   '10':'A', '11':'B', '12':'C', '13':'D', '14':'E', '15':'F', '16':'G', '17':'H', '18':'I', '19':'J', 
+                   '20':'K', '21':'L', '22':'M', '23':'N', '24':'O', '25':'P', '26':'Q', '27':'R', '28':'S', '29':'T', 
+                   '30':'U', '31':'V', '32':'W', '33':'X', '34':'Y', '35':'Z', '36':'a', '37':'b', '38':'c', '39':'d',
+                   '40':'e', '41':'f', '42':'g', '43':'h', '44':'i', '45':'j', '46':'k', '47':'l', '48':'m', '49':'n',
+                   '50':'o', '51':'p', '52':'q', '53':'r', '54':'s', '55':'t', '56':'u', '57':'v', '58':'w', '59':'x',
+                   '60':'y', '61':'z'}
+    # 28*28
     v_length = 784
-    # send how many segmentations you have
-    test_size = size
-    imgs = []
+    
+    # open imgs
+    testData = []
     for img in imgs_path:
-        imgs.append(cv2.imread(img, 0))
+        testData.append(cv2.imread(img, 0))
 
-    # omiting "testLabel" bcause i still dont know if i will have this
-    #testData = imgs
-    # [ ] test this on local dataset
-    #testData = testData.reshape(test_size, v_length)
-    #testData = testData.astype("float32")
-    #testData /= 255
+    # normalize the img data
+    testData = testData.reshape(test_size, v_length)
+    testData = testData.astype('float32')
+    testData /= 255
 
-    #test_images = testData[a:b]
+    test_images = testData
+    test_images = test_images.reshape(test_images.shape[0], 28, 28)
 
-    # reshape the test images to standard 128x128 format
-    #test_images = imgs.reshape(imgs.shape[0], 128, 128)
-    #logger.debug("[INFO] test images shape - {}".format(test_images.shape))
-
-    # loop over each of the test images
-    #for i, test_image in enumerate(test_images, start=1):
-    plate_prediction = []
-    for image in imgs:
-        # reshape the test image to [1x16384] format so that our model understands
-        # try comenting below line
-        image = image.reshape(1,128*128)
+    # in pos_predict i will store the original img and its respective prediction
+    plate_predictions, predict_result = [], []
+    for test_image in test_images:
+        # grab a copy of test image for viewing
+        original_img = test_image
+        
+        # reshape the test image to [1x784] format so that our model understands
+        test_image = test_image.reshape(1,784)
+        
+        # make prediction on test image using our trained model
+        prediction = model.predict_classes(test_image, verbose=0)
         
         # make prediction on test image using our trained model
         prediction = model.predict_classes(image, verbose=0)
+        plate_predictions.append(label_value[str(prediction[0])])
         
-        plate_prediction.append(prediction[0])
+        predict_result.append([original_img, label_value[str(prediction[0])]])
+        #plt.imshow(org_image, cmap=plt.get_cmap('gray'))
 
-    '''
     plate = ''
-    for char in plate_prediction:
+    for char in plate_predictions:
         plate += char
-    '''
+    
     # output the recognized plate
     logger.debug("The car plate is: {}".format(plate))
+    logger.debug("Now the system will show each predicted picture and it's respective prediction")
+    logger.debug("NOTE: Press any key to close img window")
+
+    for i in range(predict_result):
+        logger.debug('This character is: {}'.format(predict_result[i][1]))
+        cv2.imshow(predict_result[i][0])
+        cv2.waitKey(0)
+
 
 if __name__ == '__main__':
-    '''
-    # this works for digit network
-    # NOTE: to test uncomment respectives functions as well
-    model = train_digit()
-    test_digit(model)
-    '''
-    p = '/home/regisf/Documents/dev/python/neural-networks/car_plate_recognition/output/01_plate_char_1.jpg'
-
     model = load_trained_model()
-    test_emnist(model)
-    #identify_plate(model, p, 1)
+    test_emnist(model, 5, 9)
