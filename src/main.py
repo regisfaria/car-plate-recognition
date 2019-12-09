@@ -4,7 +4,6 @@ MLP for car plate recognition
 @AUTHOR: Régis Faria
 @EMAIL: regisprogramming@gmail.com
 '''
-
 #######  DEVELOPMENT STEPS  #######
 # [X] from a car image, extract it's plate
 # [X] implement a way to check if the extract plate was a success if not skip
@@ -12,33 +11,20 @@ MLP for car plate recognition
 # [X] save the segmented plate as a new img for each char
 # [X] make a list return with path for the segmented chars/digits 
 # [X] create a function to re-scale the digits/chars. maybe 28x28 *pick same as dataset
-# [ ] implement the network
+# [X] implement the network
 # [ ] send the segmented imgs to the network
 # [ ] output info
 # [ ] finish github repo
 
-##########  OPTIONAL STEPS  ###########
-# [ ] find a way to get how many files are in a folder and delete the invalid ones
+import utils
+import network
 
 import sys
-import utils
 import os
 import time
 from tqdm import tqdm
-
 import logging
 from logging import handlers
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-from keras.models import Sequential
-from keras.layers.core import Dense, Activation, Dropout
-from keras.datasets import mnist
-from keras.utils import np_utils
-
-# random seed
-np.random.seed(9)
 
 # Setting directories 
 project_directory = str(utils.get_project_root())
@@ -78,9 +64,6 @@ stdout_handler.setFormatter(formatter)
 logger.addHandler(stdout_handler)
 
 if __name__ == '__main__':
-
-    # image dataset selection
-    # list[0] == train and list[1] == test
     dataset_path = []
     dataset_path.append(project_directory + '/datasets/1/train/')
     dataset_path.append(project_directory + '/datasets/1/test/')
@@ -92,27 +75,55 @@ if __name__ == '__main__':
         logger.debug("----- CAR'S PLATE RECOGNITION MLP -----")
         logger.debug("NAVIGATION MENU")
         logger.debug("1. Train network")
-        logger.debug("2. Use the network")
-        logger.debug("3. Quit\n")
+        logger.debug("2. Load trained network")
+        logger.debug("3. Test network with test data")
+        logger.debug("4. Recognize car's plate")
+        logger.debug("5. Quit\n")
+        logger.debug('NOTE: you must train or load the network before option 3 and 4')
+        logger.debug('NOTE: training takes ~1min per epoch.')
         user_choice = int(input())
+        # train
         if user_choice == 1:
-            pass
+            logger.debug('Please, state how many epochs you want to train the model:\n')
+            ep = int(input('epochs = '))
+            
+            logger.debug('[INFO] Training will begin soon...')
+            model = network.train_emnist(ep)
+            logger.debug('[INFO] Training completed')
+        # load pre trained
         elif user_choice == 2:
-            pass
+            model = network.load_trained_model()
+            logger.debug('[INFO] Model loaded')
+        # test model with emnist data
         elif user_choice == 3:
+            if not model:
+                logger.debug('You have not loaded the model')
+                logger.debug("Please load(op2) or train(op1) the network before you chose this option")
+                continue
+            
+            logger.debug('Before testing, give two numbers to pick samples from the dataset')
+            logger.debug('NOTE: first number should be lower then the first one. (we will do n1 until n2 samples)')
+            logger.debug('NOTE: ideal pick is with a 4 digits difference. (i.e. n1 = 1; n2 = 5)')
+
+            user_n1 = int(input('N1 = '))
+            user_n2 = int(input('N2 = '))
+            network.test_emnist(model, user_n1, user_n2)
+        elif user_choice == 4:
+            if not model:
+                logger.debug('You have not loaded the model')
+                logger.debug("Please load(op2) or train(op1) the network before you chose this option")
+                continue
+        # quit
+        elif user_choice == 5:
             logger.debug("Tks for using")
             print('---------------------------------------------------------------------------')
             break
+        # error input
         else:
             logger.debug('Invalid choice, try again.')
         print('---------------------------------------------------------------------------')
     '''
-    # Imgs with problem: 
-    # 03, 04, 13, 14, 15, 16
-    # 17, 20
-    
-    #'''
-    # test for multiple imgs
+
     try:    
         # here i will make a quick test for img extract
         for i in tqdm(range(1, 21)):
@@ -151,7 +162,6 @@ if __name__ == '__main__':
                 utils.posprocessing(img)
             
             # Now i'll send the chars to the network
-
             # read development steps
     except Exception as e:
         logger.debug(e)
