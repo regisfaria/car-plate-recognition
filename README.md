@@ -16,9 +16,8 @@ The output should be the car's plate.
 2. The characters are not recognized by order. So if a plate is: "ABC1234" the output may be "12AB4C3"
 
 My NN MLP trained in 120 epochs achieved the following accuracy:
-![Alt Text](https://raw.githubusercontent.com/regisfaria/car-plate-recognition/master/model_accuracy.png)
-
 And it's respective loss:
+![Alt Text](https://raw.githubusercontent.com/regisfaria/car-plate-recognition/master/model_accuracy.png)
 ![Alt Text](https://raw.githubusercontent.com/regisfaria/car-plate-recognition/master/model_loss.png)
 
 ## REQUIREMENTS
