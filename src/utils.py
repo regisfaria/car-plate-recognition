@@ -16,8 +16,7 @@ def get_project_root() -> Path:
 # Setting directories #
 #######################
 project_directory = str(get_project_root())
-datasets_path = project_directory + '/datasets/'
-output_path = project_directory + '/output/'
+output_path = project_directory + '/images/output/'
 # Change this to match your image extention
 img_extention = '.png'
 script_name = os.path.basename(__file__)
@@ -385,32 +384,45 @@ def plate_segmentation(img_path, *args):
         logger.debug('Exception: {} found in file "{}_char_{}"'.format(e, img_name[0], char_count))
         return False
 
-def posprocessing(img_path, thresh, erode, erode_kernel, blur, blur_kernel):
-    img = cv2.imread(img_path, 0)
-    rows,cols = img.shape
-    # remove unnecessary lines that appears on reshaping
-    for i in range(0, rows):
-        for j in range(0, cols):
-            if i == 0 or i == 1:
-                img[i, j] = 255
-            if j == 0 or j == 1:
-                img[i, j] = 255
-    # the EMNIST dataset used have a black background and white characters
-    # my segmented files are white background and black characters
-    # below code is to invert that based on a thresh pixel value
-    for i in range(0, rows):
-        for j in range(0, cols):
-            if img[i, j] < thresh:
-                img[i, j] = (img[i, j]-255)*-1
-            elif img[i, j] > thresh:
-                img[i, j] = (img[i, j]+255)/255
-    logger.debug('Do you want to apply Erode function?')
-    if erode == 'y':
-        # erode to make the digit more thin
-        kernel = np.ones((erode_kernel,erode_kernel), np.uint8)
-        img = cv2.erode(img.copy(), kernel, iterations=1)
-    if blur == 'y':
-        # gausian blur may help
-        img = cv2.GaussianBlur(img.copy(),(blur_kernel,blur_kernel),cv2.BORDER_DEFAULT) 
-    # save new img
-    cv2.imwrite(img_path, img)
+def posprocessing(img_path_list, thresh, erode, erode_kernel, blur, blur_kernel):
+    new_img_path_list = []
+    for img_path in img_path_list:
+        img = cv2.imread(img_path, 0)
+        img_name = img_path.split('/')[-1].split('.')
+
+        rows,cols = img.shape
+        # remove unnecessary lines that appears on reshaping
+        for i in range(0, rows):
+            for j in range(0, cols):
+                if i == 0 or i == 1:
+                    img[i, j] = 255
+                if j == 0 or j == 1:
+                    img[i, j] = 255
+        # the EMNIST dataset used have a black background and white characters
+        # my segmented files are white background and black characters
+        # below code is to invert that based on a thresh pixel value
+        for i in range(0, rows):
+            for j in range(0, cols):
+                if img[i, j] < thresh:
+                    img[i, j] = (img[i, j]-255)*-1
+                elif img[i, j] > thresh:
+                    img[i, j] = (img[i, j]+255)/255
+        
+        if erode == 'y':
+            # erode to make the digit more thin
+            kernel = np.ones((erode_kernel,erode_kernel), np.uint8)
+            img = cv2.erode(img.copy(), kernel, iterations=1)
+            # update img path
+            img_path = output_path + img_name[0] + '_erode' + img_extention
+        if blur == 'y':
+            # gausian blur may help
+            img = cv2.GaussianBlur(img.copy(),(blur_kernel,blur_kernel),cv2.BORDER_DEFAULT)
+            # update img path
+            img_path = output_path + img_name[0] + '_blur' + img_extention
+        # update img path
+        if erode == 'y' and blur == 'y':
+            img_path = output_path + img_name[0] + '_erode_and_blur' + img_extention
+        # save new img
+        cv2.imwrite(img_path, img)
+        new_img_path_list.append(img_path)
+    return new_img_path_list
