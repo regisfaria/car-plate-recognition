@@ -181,13 +181,12 @@ if __name__ == '__main__':
                     logger.debug('Do you wish to apply blur function on each char? (y/n): ')
                     blur = input()
                     if blur == 'y':
-                        logger.debug('Please choose a blur itensity. (ideal value is 3): ')
+                        logger.debug('Please choose a blur itensity. (ideal value is 3 AND values > 2): ')
                         blur_size = int(input())
                     else:
                         blur_size = None
-                    
-                    for img in char_imgs:
-                        utils.posprocessing(img, 50, erode, erode_kernel, blur, blur_kernel)
+                    #pos processeing function
+                    char_imgs = utils.posprocessing(char_imgs, 50, erode, erode_size, blur, blur_size)
 
                     # now its time to send it to the NN
                     network.identify_plate(model, char_imgs, len(char_imgs))
