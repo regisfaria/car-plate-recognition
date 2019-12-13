@@ -6,10 +6,14 @@
 # [X] make a list return with path for the segmented chars/digits 
 # [X] create a function to re-scale the digits/chars. maybe 28x28 *pick same as dataset
 # [X] implement the network
-# [ ] find vehicle imgs
-# [ ] send the segmented imgs to the network
+# [X] find vehicle imgs
+# [X] send the segmented imgs to the network
 # [X] output info
-# [ ] finish github repo
+# [X] finish github repo
+
+###### ISSUES ######
+# The plate's characters are not being recognized in it's order, so the output isn't the same as plate
+# The network mistake a lot
 
 import utils
 import network
@@ -20,10 +24,15 @@ from tqdm import tqdm
 import logging
 from logging import handlers
 
-# Setting directories 
+#######################
+# Setting directories #
+#######################
 project_directory = str(utils.get_project_root())
-output_path = project_directory + '/output/'
-datasets_path = project_directory + '/datasets/'
+output_path = project_directory + '/images/output/'
+# Here you should set where you car images are
+vehicles_path = project_directory + '/images/vehicles/'
+# Change this to match your images extention
+img_extention = '.png'
 script_name = os.path.basename(__file__)
 
 # Output folder setup
@@ -57,13 +66,18 @@ stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(formatter)
 logger.addHandler(stdout_handler)
 
-if __name__ == '__main__':
-    dataset_path = project_directory + '/datasets/vehicles/'
+def print_folder_files(path):
+    names = []
+    for f in os.listdir(path):
+        logger.debug(f)
+        names.append(f.split('.')[0])
+    return names
 
-    
+
+if __name__ == '__main__':    
     while True:
         print('\n\n---------------------------------------------------------------------------')
-        # I'll add more options if needed
+        
         logger.debug("----- CAR'S PLATE RECOGNITION MLP -----")
         logger.debug("NAVIGATION MENU")
         logger.debug("1. Train network")
@@ -74,6 +88,7 @@ if __name__ == '__main__':
         logger.debug('NOTE: you must train or load the network before option 3 and 4')
         logger.debug('NOTE: training takes ~1min per epoch.')
         user_choice = int(input())
+        
         # train
         if user_choice == 1:
             logger.debug('Please, state how many epochs you want to train the model:\n')
@@ -82,101 +97,112 @@ if __name__ == '__main__':
             logger.debug('[INFO] Training will begin soon...')
             model = network.train_emnist(ep)
             logger.debug('[INFO] Training completed')
+        
         # load pre trained
         elif user_choice == 2:
             model = network.load_trained_model()
             logger.debug('[INFO] Model loaded')
+        
         # test model with emnist data
         elif user_choice == 3:
-            if not model:
-                logger.debug('You have not loaded the model')
+            try:
+                if model:
+                    logger.debug("[INFO] Model is loaded")
+            except Exception as e:
+                logger.debug(e)
                 logger.debug("Please load(op2) or train(op1) the network before you chose this option")
                 continue
-            
+
             logger.debug('Before testing, give two numbers to pick samples from the dataset')
             logger.debug('NOTE: first number should be lower then the first one. (we will do n1 until n2 samples)')
-            logger.debug('NOTE: ideal pick is with a 4 digits difference. (i.e. n1 = 1; n2 = 5)')
+            logger.debug('NOTE: you must pick a 4 digits difference. (i.e. n1 = 1; n2 = 5)')
 
             user_n1 = int(input('N1 = '))
             user_n2 = int(input('N2 = '))
             network.test_emnist(model, user_n1, user_n2)
+        # extract car's plate and send to NN
         elif user_choice == 4:
-            if not model:
-                logger.debug('You have not loaded the model')
+            try:
+                if model:
+                    logger.debug("[INFO] Model is loaded")
+            except Exception as e:
+                logger.debug(e)
                 logger.debug("Please load(op2) or train(op1) the network before you chose this option")
                 continue
-            # STEPS
-            # 1. List possible car imgs from dataset path
-            # 2. Extract plate from it
-            # 3. presegment
-            # 4. segment
-            # 5. posseg
-            # 6. send it to the network
+            
+            logger.debug('Listing available car images...')
+            choices = print_folder_files(vehicles_path)
+            
+            logger.debug('Chose one. NOTE: only the name')
+            img_name = input('Img name: ')
+            valid_choice = False
+            for c in choices:
+                if img_name == c:
+                    valid_choice = True
+            
+            if valid_choice:
+                try:
+                    img_path = vehicles_path + img_name + img_extention
+                    
+                    # Extract the plate
+                    success = utils.extract_car_plate(img_path, output_path)
+                    if not success:
+                        logger.debug('Invalid plate extraction for "{}".'.format(img_path.split('/')[-1]))
+                        continue
+
+                    # set up new img path
+                    extracted_img_path = output_path + img_name + '_plate' + img_extention
+
+                    # Improvements on the car extracted plate, removing some blank sides
+                    success = utils.pre_segmentation_improvements(extracted_img_path, output_path)
+                    if not success:
+                        logger.debug('Invalid pre segmentation for "{}"'.format(extracted_img_path.split('/')[-1]))
+                        continue
+
+                    # Segmentation on each character of the plate
+                    success, char_imgs = utils.plate_segmentation(extracted_img_path, output_path)
+                    if not success:
+                        logger.debug('Invalid segmentation for "{}". Skipping...'.format(extracted_img_path.split('/')[-1]))
+                        continue
+
+                    # After reshaping the img to the same amount of pixels from my dataset, i'll now need
+                    # to make a posprocessing, because the first row and collunm of the image is a black line
+                    # and in some cases that could cause a problem
+                    # I'm making the blur and erode optional, because some imgs get wrecked using erode
+                    # so sometimes it's not needed, or it just need a lower value, so it's best like this
+                    logger.debug('Do you wish to apply erode function on each char? (y/n): ')
+                    erode = input()
+                    if erode == 'y':
+                        logger.debug('Please choose a erode size. (ideal value is 3): ')
+                        erode_size = int(input())
+                    else:
+                        erode_size = None
+                    
+                    logger.debug('Do you wish to apply blur function on each char? (y/n): ')
+                    blur = input()
+                    if blur == 'y':
+                        logger.debug('Please choose a blur itensity. (ideal value is 3): ')
+                        blur_size = int(input())
+                    else:
+                        blur_size = None
+                    
+                    for img in char_imgs:
+                        utils.posprocessing(img, 50, erode, erode_kernel, blur, blur_kernel)
+
+                    # now its time to send it to the NN
+                    network.identify_plate(model, char_imgs, len(char_imgs))
+                except Exception as e:
+                    logger.debug(e)
+                    continue
+            else:
+                logger.debug('You have pick a wrong option. Try again later.')
         # quit
         elif user_choice == 5:
             logger.debug("Tks for using")
             print('---------------------------------------------------------------------------')
             break
+        
         # error input
         else:
             logger.debug('Invalid choice, try again.')
         print('---------------------------------------------------------------------------')
-    
-    '''
-    try:    
-        # here i will make a quick test for img extract
-        for i in tqdm(range(1, 21)):
-            if i < 10:
-                image = dataset_path + '0' + str(i) + '.jpg'
-            else:
-                image = dataset_path + str(i) + '.jpg'
-            # Extract car's plate from a car img
-            success = utils.extract_car_plate(image, output_path)
-            if not success:
-                logger.debug('Invalid plate extraction for "{}". Skipping...'.format(image.split('/')[-1]))
-                continue
-
-            if i < 10:
-                image_extracted = output_path + '0' + str(i) + '_plate.jpg'
-            else:
-                image_extracted = output_path + str(i) + '_plate.jpg'
-            
-            # Improvements on the car extracted plate, removing some blank sides
-            success = utils.pre_segmentation_improvements(image_extracted, output_path)
-            if not success:
-                logger.debug('Invalid pre segmentation for "{}". Skipping...'.format(image_extracted.split('/')[-1]))
-                # [ ] find a way to list and then delete the file created in output
-                continue
-            
-            # Segmentation on each character of the plate
-            success, char_imgs = utils.plate_segmentation(image_extracted, output_path)
-            if not success:
-                logger.debug('Invalid segmentation for "{}". Skipping...'.format(image_extracted.split('/')[-1]))
-                # [ ] find a way to list and then delete the file created in output
-                continue
-            # After reshaping the img to the same amount of pixels from my dataset, i'll now need
-            # to make a posprocessing, because the first row and collunm of the image is a black line
-            # and in some cases that could cause a problem
-            for img in char_imgs:
-                utils.posprocessing(img, 50)
-            
-            # Now i'll send the chars to the network
-            # read development steps
-    except Exception as e:
-        logger.debug(e)
-    '''
-    '''
-    # test for 1 img only 
-    # Imgs with problem: 03, 04, 13, 14, 15, 16
-    try:
-        image = dataset_path + '05.jpg'
-        imageout = output_path + '05_plate.jpg'
-        # Extract car's plate from a car img
-        utils.extract_car_plate(image, output_path)
-        # Improvements on the car extracted plate, removing some blank sides
-        utils.pre_segmentation_improvements(imageout, output_path)
-        # Segmentation on each character of the plate
-        utils.plate_segmentation(imageout, output_path)
-    except Exception as e:
-        logger.debug(e)
-    '''
