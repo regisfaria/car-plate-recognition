@@ -266,12 +266,14 @@ def identify_plate(model, imgs_path, test_size):
         testData.append(cv2.imread(img, 0))
 
     # normalize the img data
+    testData = np.array(testData)
     testData = testData.reshape(test_size, v_length)
     testData = testData.astype('float32')
     testData /= 255
 
     test_images = testData
     test_images = test_images.reshape(test_images.shape[0], 28, 28)
+    #logger.debug(test_images.shape)
 
     # in pos_predict i will store the original img and its respective prediction
     plate_predictions, predict_result = [], []
@@ -280,13 +282,10 @@ def identify_plate(model, imgs_path, test_size):
         original_img = test_image
         
         # reshape the test image to [1x784] format so that our model understands
-        test_image = test_image.reshape(1,784)
+        test_image = test_image.reshape(1, 784)
         
         # make prediction on test image using our trained model
         prediction = model.predict_classes(test_image, verbose=0)
-        
-        # make prediction on test image using our trained model
-        prediction = model.predict_classes(image, verbose=0)
         plate_predictions.append(label_value[str(prediction[0])])
         
         predict_result.append([original_img, label_value[str(prediction[0])]])
@@ -301,12 +300,13 @@ def identify_plate(model, imgs_path, test_size):
     logger.debug("Now the system will show each predicted picture and it's respective prediction")
     logger.debug("NOTE: Press any key to close img window")
 
-    for i in range(predict_result):
+    for i in range(0, len(predict_result)):
         logger.debug('This character is: {}'.format(predict_result[i][1]))
-        cv2.imshow(predict_result[i][0])
+        cv2.imshow('Char', predict_result[i][0])
         cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
     model = load_trained_model()
-    test_emnist(model, 5, 9)
+    test_emnist(model, 9, 13)
