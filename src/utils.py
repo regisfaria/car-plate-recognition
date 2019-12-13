@@ -12,10 +12,14 @@ import math
 def get_project_root() -> Path:
     return Path(__file__).parent.parent
 
-# Setting directories 
+#######################
+# Setting directories #
+#######################
 project_directory = str(get_project_root())
 datasets_path = project_directory + '/datasets/'
 output_path = project_directory + '/output/'
+# Change this to match your image extention
+img_extention = '.png'
 script_name = os.path.basename(__file__)
 
 # Logs setup
@@ -273,7 +277,7 @@ def extract_car_plate(img_path, *args):
                 cv2.line(img, tuple(p2fRectPoints[3]), tuple(p2fRectPoints[0]), rectColour, 2)
 
                 
-                cv2.imwrite(folder_to_save + img_name[0] + '_plate.jpg', plates_list[i].Plate)
+                cv2.imwrite(folder_to_save + img_name[0] + '_plate'+ img_extention, plates_list[i].Plate)
                 return True
     
     except Exception as e:
@@ -317,8 +321,13 @@ def pre_segmentation_improvements(img_path, *args):
         dim = (new_w, new_h)
         final_img = cv2.resize(final_img.copy(), dim, interpolation = cv2.INTER_AREA)
 
+        # added dilation
+        # Try changing to (4,4)
+        #kernel = np.ones((3,3), np.uint8)
+        #final_img = cv2.dilate(final_img.copy(), kernel, iterations=1)
+
         # sve the final img
-        cv2.imwrite(folder_to_save + img_name[0] + '.jpg', final_img)
+        cv2.imwrite(folder_to_save + img_name[0] + img_extention, final_img)
         return True
     except Exception as e:
         logger.debug('Exception: {} found in file "{}"'.format(e, img_name[0]))
@@ -336,7 +345,6 @@ def plate_segmentation(img_path, *args):
         folder_to_save = args[0]
     else:
         folder_to_save = output_path
-    
     try:
         #0 flag = cv2.IMREAD_GRAYSCALE:
         img = cv2.imread(img_path, 0)
@@ -352,6 +360,7 @@ def plate_segmentation(img_path, *args):
         for cts in contours:
             x, y, w, h = cv2.boundingRect(cts)
             
+            #logger.debug('\nx:{}\ny:{}\nw:{}\nh:{}'.format(x, y, w, h))
             possiblechar = Functions.ifChar(cts)
             # change h values if problems
             # if is a a char, append it to the char paths and save in output folder
@@ -360,7 +369,7 @@ def plate_segmentation(img_path, *args):
                 segmented_char_img = segmented_char_img[y:y+h, x:x+w]
                 #logger.debug('img "{}_char_{}" shape: {}'.format(img_name[0], char_count, segmented_char_img.shape))
 
-                img_char_path = output_path+img_name[0]+'_char_{}.jpg'.format(char_count)
+                img_char_path = folder_to_save+img_name[0]+'_char_{}'.format(char_count) + img_extention
                 segmented_paths.append(img_char_path)
                 
                 # before saving, i will reshape the imgs
@@ -376,7 +385,7 @@ def plate_segmentation(img_path, *args):
         logger.debug('Exception: {} found in file "{}_char_{}"'.format(e, img_name[0], char_count))
         return False
 
-def posprocessing(img_path, thresh):
+def posprocessing(img_path, thresh, erode, erode_kernel, blur, blur_kernel):
     img = cv2.imread(img_path, 0)
     rows,cols = img.shape
     # remove unnecessary lines that appears on reshaping
@@ -392,8 +401,16 @@ def posprocessing(img_path, thresh):
     for i in range(0, rows):
         for j in range(0, cols):
             if img[i, j] < thresh:
-                img[i, j] = 255
+                img[i, j] = (img[i, j]-255)*-1
             elif img[i, j] > thresh:
-                img[i, j] = 0
+                img[i, j] = (img[i, j]+255)/255
+    logger.debug('Do you want to apply Erode function?')
+    if erode == 'y':
+        # erode to make the digit more thin
+        kernel = np.ones((erode_kernel,erode_kernel), np.uint8)
+        img = cv2.erode(img.copy(), kernel, iterations=1)
+    if blur == 'y':
+        # gausian blur may help
+        img = cv2.GaussianBlur(img.copy(),(blur_kernel,blur_kernel),cv2.BORDER_DEFAULT) 
     # save new img
     cv2.imwrite(img_path, img)
